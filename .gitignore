@@ -1,0 +1,8 @@
+# Secrets
+.vault_pass
+vault-password.txt
+*.pem
+.env
+
+# Ansible temporary files
+*.retry

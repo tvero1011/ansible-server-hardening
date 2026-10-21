@@ -1,0 +1,9 @@
+---
+- name: Verify managed servers
+  hosts: all
+  gather_facts: true
+
+  tasks:
+    - name: Display server hostname
+      ansible.builtin.debug:
+        msg: "Managed server: {{ inventory_hostname }}"
