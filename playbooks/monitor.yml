@@ -1,0 +1,30 @@
+---
+- name: Monitor server health
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Check SSH service
+      ansible.builtin.command: systemctl is-active ssh
+      register: ssh_status
+      changed_when: false
+
+    - name: Report SSH service status
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} SSH status: {{ ssh_status.stdout }}"
+
+    - name: Check root filesystem disk usage
+      ansible.builtin.command: df -P /
+      register: disk_usage
+      changed_when: false
+
+    - name: Report root filesystem health
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} disk health:
+          {{ 'WARNING' if disk_usage.stdout_lines[1].split()[4][:-1] | int >= 80 else 'HEALTHY' }}
+
+    - name: Warn if root filesystem usage reaches 80 percent
+      ansible.builtin.debug:
+        msg: "WARNING: {{ inventory_hostname }} root filesystem usage is {{ disk_usage.stdout_lines[1].split()[4] }}"
+      when: disk_usage.stdout_lines[1].split()[4][:-1] | int >= 80
