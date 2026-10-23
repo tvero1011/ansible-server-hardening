@@ -1,0 +1,55 @@
+---
+- name: Verify server security compliance
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Check effective SSH configuration
+      ansible.builtin.command: sshd -T
+      register: ssh_effective_config
+      changed_when: false
+
+    - name: Verify root login is disabled
+      ansible.builtin.assert:
+        that:
+          - "'permitrootlogin no' in ssh_effective_config.stdout_lines"
+        fail_msg: "FAIL: Root SSH login is not disabled on {{ inventory_hostname }}"
+        success_msg: "PASS: Root SSH login is disabled"
+
+    - name: Verify password authentication is disabled
+      ansible.builtin.assert:
+        that:
+          - "'passwordauthentication no' in ssh_effective_config.stdout_lines"
+        fail_msg: "FAIL: Password SSH authentication is enabled on {{ inventory_hostname }}"
+        success_msg: "PASS: Password SSH authentication is disabled"
+
+    - name: Verify public key authentication is enabled
+      ansible.builtin.assert:
+        that:
+          - "'pubkeyauthentication yes' in ssh_effective_config.stdout_lines"
+        fail_msg: "FAIL: Public key SSH authentication is disabled on {{ inventory_hostname }}"
+        success_msg: "PASS: Public key SSH authentication is enabled"
+
+    - name: Check UFW status
+      ansible.builtin.command: ufw status
+      register: ufw_status
+      changed_when: false
+
+    - name: Verify UFW is active
+      ansible.builtin.assert:
+        that:
+          - "'Status: active' in ufw_status.stdout"
+        fail_msg: "FAIL: UFW is not active on {{ inventory_hostname }}"
+        success_msg: "PASS: UFW is active"
+
+    - name: Check UFW default policies
+      ansible.builtin.command: ufw status verbose
+      register: ufw_verbose
+      changed_when: false
+
+    - name: Verify incoming traffic is denied by default
+      ansible.builtin.assert:
+        that:
+          - "'Default: deny (incoming)' in ufw_verbose.stdout"
+        fail_msg: "FAIL: UFW incoming policy is not deny on {{ inventory_hostname }}"
+        success_msg: "PASS: UFW denies incoming traffic by default"
