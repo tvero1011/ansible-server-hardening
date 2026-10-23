@@ -1,0 +1,4 @@
+---
+# Settings specific to database servers
+
+ufw_allow_https: false

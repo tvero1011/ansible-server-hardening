@@ -1,0 +1,4 @@
+---
+# Settings specific to web servers
+
+ufw_allow_https: true

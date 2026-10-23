@@ -19,7 +19,7 @@
     rule: allow
     port: "{{ ufw_https_port }}"
     proto: tcp
-  when: "'web' in group_names"
+  when: ufw_allow_https | bool
 
 - name: Enable UFW
   community.general.ufw:

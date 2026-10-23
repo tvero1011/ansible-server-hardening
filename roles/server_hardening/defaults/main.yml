@@ -12,6 +12,8 @@ ufw_default_outgoing_policy: allow
 
 ufw_ssh_port: 22
 ufw_https_port: 443
+# HTTPS firewall setting (disabled by default)
+ufw_allow_https: false
 
 # Fail2ban settings
 fail2ban_enabled: true
