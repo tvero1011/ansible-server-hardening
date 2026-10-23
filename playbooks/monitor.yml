@@ -8,10 +8,18 @@
       ansible.builtin.command: systemctl is-active ssh
       register: ssh_status
       changed_when: false
+      failed_when: false
 
     - name: Report SSH service status
       ansible.builtin.debug:
-        msg: "{{ inventory_hostname }} SSH status: {{ ssh_status.stdout }}"
+        msg: >-
+          {{ inventory_hostname }} SSH health:
+          {{ 'HEALTHY' if ssh_status.rc == 0 and ssh_status.stdout == 'active' else 'WARNING - SSH is not active' }}
+
+    - name: Warn if SSH service is unhealthy
+      ansible.builtin.debug:
+        msg: "WARNING: SSH service is not active on {{ inventory_hostname }}"
+      when: ssh_status.rc != 0 or ssh_status.stdout != 'active'
 
     - name: Check root filesystem disk usage
       ansible.builtin.command: df -P /
