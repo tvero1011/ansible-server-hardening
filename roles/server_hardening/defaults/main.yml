@@ -12,3 +12,15 @@ ufw_default_outgoing_policy: allow
 
 ufw_ssh_port: 22
 ufw_https_port: 443
+
+# Fail2ban settings
+fail2ban_enabled: true
+fail2ban_ssh_maxretry: 5
+fail2ban_ssh_findtime: 10m
+fail2ban_ssh_bantime: 10m
+
+# Automatic security update settings
+unattended_upgrades_enabled: true
+
+# Linux audit settings
+auditd_enabled: true

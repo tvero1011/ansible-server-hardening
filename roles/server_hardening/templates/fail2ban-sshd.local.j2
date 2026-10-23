@@ -1,0 +1,8 @@
+# Managed by Ansible - do not edit manually
+
+[sshd]
+enabled = {{ fail2ban_enabled | bool | lower }}
+backend = systemd
+maxretry = {{ fail2ban_ssh_maxretry }}
+findtime = {{ fail2ban_ssh_findtime }}
+bantime = {{ fail2ban_ssh_bantime }}

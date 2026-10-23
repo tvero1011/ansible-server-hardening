@@ -3,3 +3,11 @@
   ansible.builtin.service:
     name: ssh
     state: reloaded
+
+- name: Restart Fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+
+- name: Load audit rules
+  ansible.builtin.command: augenrules --load

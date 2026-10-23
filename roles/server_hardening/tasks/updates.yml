@@ -1,0 +1,19 @@
+- name: Install unattended-upgrades
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+    update_cache: true
+  when: unattended_upgrades_enabled | bool
+  tags:
+    - updates
+
+- name: Configure automatic package updates
+  ansible.builtin.template:
+    src: 20auto-upgrades.j2
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: '0644'
+  when: unattended_upgrades_enabled | bool
+  tags:
+    - updates
