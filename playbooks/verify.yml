@@ -1,0 +1,15 @@
+---
+- name: Verify server security
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Check SSH service is running
+      ansible.builtin.command: systemctl is-active ssh
+      register: ssh_service
+      changed_when: false
+
+    - name: Report SSH service status
+      ansible.builtin.debug:
+        msg: "SSH service on {{ inventory_hostname }}: {{ ssh_service.stdout }}"
+        
