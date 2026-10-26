@@ -2,231 +2,122 @@
 
 [![Ansible CI](https://github.com/tvero1011/ansible-server-hardening/actions/workflows/ansible-ci.yml/badge.svg)](https://github.com/tvero1011/ansible-server-hardening/actions/workflows/ansible-ci.yml)
 
-A Linux server security automation project built with Ansible. It applies baseline security controls, verifies compliance, detects SSH configuration drift, and validates the code with GitHub Actions.
+Ansible automation that hardens Ubuntu servers, checks them against a security baseline, and detects SSH configuration drift. The repo also contains a Terraform configuration for a proposed AWS environment, with both validated in CI.
 
-## Project Goals
+## Status
 
-Manually securing multiple Linux servers leads to inconsistent settings and configuration drift. This project uses Ansible to apply repeatable security controls and then verify the resulting server state.
-
-It demonstrates practical configuration management, Linux security, automation, and CI validation in a reproducible lab environment.
+| Part | Status |
+|------|--------|
+| Ansible hardening, compliance, and drift checks | Run and tested on two Ubuntu 24.04 Multipass VMs |
+| GitHub Actions CI | Passing: `ansible-lint`, playbook syntax checks, `terraform fmt`, `terraform validate` |
+| Terraform / AWS | **Validated only.** `terraform plan` and `apply` have not been run, and no AWS resources exist |
 
 ## Architecture
 
+**Local lab (implemented and tested)**
+
 ```text
-              Ansible Control Node
-              Ubuntu 24.04 + Ansible
-                       |
-            SSH / Ansible automation
-                /              \
-               v                v
-        web-01 (Ubuntu)    db-01 (Ubuntu)
-                \              /
-                 \            /
-              Compliance checks and
-               SSH drift detection
-                       |
-                GitHub Actions CI
+        Ansible control node
+                |
+              SSH
+         +------+------+
+         |             |
+      web-01         db-01
+   (Ubuntu 24.04) (Ubuntu 24.04)
 ```
 
-The lab uses three Ubuntu 24.04 virtual machines managed with Multipass: one control node and two managed servers, `web-01` (group `web`) and `db-01` (group `db`). The control node connects to the managed servers over SSH.
+**Proposed AWS design (not deployed)**
 
-## Security Controls
+```text
+                 Internet
+                     |
+            Internet Gateway
+                     |
+ +------------- VPC 10.20.0.0/16 -------------+
+ |                                            |
+ |  Public subnet 10.20.1.0/24                |
+ |    web-01 (EC2)                            |
+ |    SSH from one admin /32, HTTP, HTTPS     |
+ |                    |                       |
+ |             SSH from web-01 only           |
+ |                    |                       |
+ |  Private subnet 10.20.2.0/24               |
+ |    db-01 (EC2, no public IP)               |
+ +--------------------------------------------+
+```
+
+Terraform would create the AWS network and instances. Ansible configures the servers. Only the Ansible side has been run.
+
+## What the Ansible role does
 
 | Area | Implementation |
 |------|----------------|
-| SSH hardening | Drop-in config (`/etc/ssh/sshd_config.d/00-ansible-hardening.conf`), validated with `sshd -t`: root login and password authentication disabled, public-key authentication enabled |
-| User management | Dedicated administrative account (`sysadmin` by default) in the `sudo` group, with the control node's public key installed |
-| Firewall | UFW enabled; incoming denied and outgoing allowed by default |
-| Firewall rules | SSH allowed; HTTPS (443) allowed only when `server_hardening_ufw_allow_https` is true (set in `group_vars/web.yml`, off for `db`) |
-| Intrusion prevention | Fail2ban SSH jail (configurable `maxretry`, `findtime`, `bantime`), service enabled and running |
-| Security updates | `unattended-upgrades` installed; daily package-list updates and unattended upgrades enabled |
-| System auditing | `auditd` rules watch `/etc/passwd`, `/etc/shadow`, `/etc/ssh/sshd_config`, and `/etc/ssh/sshd_config.d/` |
-| Compliance | Assertions on effective SSH settings (`sshd -T`), UFW status and default policies, Fail2ban, auto-update config, and `auditd` |
-| Drift detection | Compares effective SSH `port`, `permitrootlogin`, `passwordauthentication`, and `pubkeyauthentication` against the expected policy |
-| CI validation | GitHub Actions runs `ansible-lint` and playbook syntax checks |
+| SSH | Drop-in config validated with `sshd -t`; root login and password authentication disabled, public-key authentication enabled |
+| Admin user | `sysadmin` account in the `sudo` group with the control node's public key |
+| Firewall | UFW with incoming denied by default; SSH allowed; HTTPS allowed on the `web` group only |
+| Fail2ban | SSH jail enabled and running |
+| Updates | `unattended-upgrades` configured |
+| Auditing | `auditd` rules watching `/etc/passwd`, `/etc/shadow`, `/etc/ssh/sshd_config`, and `/etc/ssh/sshd_config.d/` |
 
-All role behaviour is controlled by variables in `roles/server_hardening/defaults/main.yml`.
+**Compliance check** (`compliance.yml`): asserts the effective SSH settings (read with `sshd -T`, not from the config file), UFW status and default policies, Fail2ban, auto-update config, and `auditd`. It fails if any check fails.
 
-## Repository Structure
+**Drift check** (`drift_check.yml`): compares the effective SSH port, root login, password authentication, and public-key authentication with the expected policy. It reports each setting and fails on a mismatch. It does not fix anything. I tested it with a deliberately mismatched expected value, so it shows mismatch detection, not detection of an unauthorized change on a live server.
 
-```text
-.
-├── .github/workflows/
-│   └── ansible-ci.yml
-├── docs/proof/                  # Execution evidence (screenshots)
-├── group_vars/
-│   ├── all/vault.yml            # Ansible Vault encrypted variables
-│   ├── db.yml                   # HTTPS rule off for database servers
-│   └── web.yml                  # HTTPS rule on for web servers
-├── playbooks/
-│   ├── hardening.yml            # Applies the server_hardening role
-│   ├── compliance.yml           # Compliance assertions
-│   ├── drift_check.yml          # SSH drift detection
-│   ├── verify.yml               # Reports SSH service state
-│   ├── monitor.yml              # SSH service and root disk usage checks
-│   ├── deploy_nginx.yml         # Deploys Nginx to the web group
-│   └── test.yml                 # Simple host reachability check
-├── roles/
-│   ├── server_hardening/
-│   │   ├── defaults/
-│   │   ├── handlers/
-│   │   ├── tasks/               # users, ssh, firewall, fail2ban, updates, auditd
-│   │   └── templates/
-│   └── nginx_web/
-│       ├── tasks/
-│       └── templates/
-├── ansible.cfg
-├── inventory.ini
-└── README.md
-```
+Other playbooks: `verify.yml` and `monitor.yml` (SSH service state and disk usage), `deploy_nginx.yml` (Nginx on the web group), `test.yml` (reachability).
 
-## Prerequisites
+## Quick start
 
-- A Linux Ansible control node with Python and `ansible-core`
-- `ansible-lint`
-- Ansible collections: `ansible.posix` and `community.general`
-- Managed Ubuntu servers reachable over SSH (the inventory connects as `ubuntu`)
-- An SSH key pair on the control node. The role installs `~/.ssh/id_ed25519.pub` for the administrative account, so that key must exist.
-- The Ansible Vault password for `group_vars/all/vault.yml`
-- Server host keys in `known_hosts`, because `ansible.cfg` sets `host_key_checking = True`
-
-The lab was developed with Multipass VMs running Ubuntu 24.04.
-
-## Setup
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/tvero1011/ansible-server-hardening.git
-   cd ansible-server-hardening
-   ```
-
-2. Create and activate a Python virtual environment:
-
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
-
-3. Install Ansible and the linter:
-
-   ```bash
-   python -m pip install ansible-core ansible-lint
-   ```
-
-4. Install the required collections:
-
-   ```bash
-   ansible-galaxy collection install ansible.posix community.general
-   ```
-
-5. Update `inventory.ini` with the IP addresses of your own servers. The checked-in addresses are private lab IPs.
-
-6. Check the inventory:
-
-   ```bash
-   ansible-inventory -i inventory.ini --graph
-   ```
-
-7. Verify connectivity to the managed servers:
-
-   ```bash
-   ansible all -m ping --ask-vault-pass
-   ```
-
-## Usage
-
-### 1. Apply server hardening
+You need an Ansible control node, SSH access to the servers, the Vault password for `group_vars/all/vault.yml`, and an SSH public key at `~/.ssh/id_ed25519.pub` (the role installs it for `sysadmin`). Host key checking is on, so the servers' keys must be in `known_hosts`.
 
 ```bash
+git clone https://github.com/tvero1011/ansible-server-hardening.git
+cd ansible-server-hardening
+python3 -m venv .venv && source .venv/bin/activate
+python -m pip install ansible-core ansible-lint
+ansible-galaxy collection install ansible.posix community.general
+# edit inventory.ini: replace the lab IP addresses with your own
+ansible all -m ping --ask-vault-pass
 ansible-playbook playbooks/hardening.yml --ask-vault-pass
-```
-
-Applies the controls defined by the `server_hardening` role.
-
-### 2. Verify compliance
-
-```bash
 ansible-playbook playbooks/compliance.yml --ask-vault-pass
-```
-
-Asserts the effective SSH configuration, UFW status and default policies, Fail2ban, automatic security updates, and `auditd`. The playbook fails if any check does not pass.
-
-### 3. Detect SSH configuration drift
-
-```bash
 ansible-playbook playbooks/drift_check.yml --ask-vault-pass
 ```
 
-Compares the effective SSH settings with the expected policy, reports each setting as `COMPLIANT` or `DRIFT DETECTED`, and **fails when a mismatch is found**. It reports drift only; it does not remediate it.
+Run the hardening playbook a second time to check repeatability; a second run should report `changed=0`. SSH and firewall changes can lock you out, so confirm you have another way in before applying them to a server you care about.
 
-### 4. Verify services and monitor servers
+## Terraform (proposed, not applied)
 
-```bash
-ansible-playbook playbooks/verify.yml --ask-vault-pass
-ansible-playbook playbooks/monitor.yml --ask-vault-pass
-```
-
-`verify.yml` reports the SSH service state. `monitor.yml` reports SSH service health and root filesystem usage, and warns at 80% or higher.
-
-### 5. Deploy Nginx (optional)
+`terraform/` defines a VPC with a public and a private subnet, an internet gateway, two security groups, and two Ubuntu 24.04 EC2 instances (`t3.micro`, encrypted 8 GB root volumes, IMDSv2 required). SSH to the web server is limited to one administrator address (`admin_cidr`, which must be a `/32`). The default region is `ap-southeast-1`.
 
 ```bash
-ansible-playbook playbooks/deploy_nginx.yml --ask-vault-pass
+terraform -chdir=terraform fmt -check -recursive
+terraform -chdir=terraform init -backend=false
+terraform -chdir=terraform validate
 ```
 
-Installs Nginx on the `web` group and deploys a simple homepage showing the server name.
+`validate` only checks syntax and internal consistency. It does not contact AWS, so it does not show that a plan or deployment would succeed. Applying this configuration would create billable resources.
 
-### 6. Validate code quality
+## CI and evidence
 
-```bash
-ansible-lint playbooks/ roles/
+The workflow in `.github/workflows/ansible-ci.yml` runs on pushes, pull requests, and manual dispatch. It runs `ansible-lint`, syntax-checks every playbook in `playbooks/`, and runs the Terraform format check, backend-free init, and validate. It does not connect to the lab servers.
 
-for playbook in playbooks/*.yml; do
-  echo "Checking ${playbook}"
-  ansible-playbook "${playbook}" --syntax-check || exit 1
-done
-```
+Screenshots are in [`docs/proof/`](docs/proof/): connectivity, a hardening run with `changed=0` and no failures, a compliance run, the drift check failing on a deliberate mismatch, and the passing CI runs.
 
-## Continuous Integration
+## Known limitations
 
-The workflow in `.github/workflows/ansible-ci.yml` runs on pushes, pull requests, and manual dispatch. It installs Ansible and the required collections, runs `ansible-lint` across `playbooks/` and all roles, and syntax-checks every `.yml` playbook in `playbooks/`.
+- **Firewall and Nginx:** UFW allows SSH and (on web servers) port 443, but the Nginx role serves HTTP on port 80, so that page is blocked from outside. Open port 80 or add TLS.
+- **`sysadmin` sudo:** the account is created without a password, so `sudo` will not work for it until a password or passwordless sudo rule is set up.
+- **Terraform key pair:** the instances have no `key_name`, so SSH to them is not possible as written.
+- **Terraform private subnet:** it has no NAT gateway or internet route, so `db-01` could not install packages, and the inventory has no jump-host setup.
+- **Static inventory:** `inventory.ini` holds the lab IPs and is not generated from Terraform.
+- **No integration tests:** CI checks code quality only. There are no tests against live servers, no Terraform security scanning, and no remote Terraform state.
 
-CI validates code quality and playbook structure only. It does not connect to the private lab servers, and it does not prove that every security control works in a separate production environment.
+## Next steps
 
-## Security Notes
-
-- Keep vault passwords, private SSH keys, and other credentials out of Git.
-- Store sensitive variables in Ansible Vault and supply the password securely when prompted.
-- Test hardening changes in a disposable environment before applying them to production.
-- Confirm firewall rules and SSH access before applying changes to remote servers, to avoid locking yourself out.
-- Review service availability and application requirements before enforcing a security baseline.
-
-## Known Limitations
-
-- The firewall opens SSH and, on web servers, port 443 only. The Nginx role serves its default HTTP site on port 80, so that page is not reachable from outside once UFW is enforced. Open port 80 or add TLS to match.
-- The administrative account is created without a password, so `sudo` will not work for it until a password or a passwordless sudo rule is configured.
-
-## Current Scope and Future Improvements
-
-**Implemented in the current lab**
-
-- Ansible-based Linux hardening
-- SSH configuration verification and drift detection
-- UFW, Fail2ban, automatic-update, and `auditd` checks
-- GitHub Actions lint and syntax validation
-
-**Potential future improvements**
-
-- Terraform-managed AWS infrastructure
-- Automated inventory generation for cloud instances
-- More comprehensive compliance checks and drift remediation
-- Additional integration tests and documented execution evidence
-
-## Evidence
-
-Execution evidence is kept in [`docs/proof/`](docs/proof/). It currently contains the Ansible connectivity check (`00-ansible-connectivity.png`).
+1. Fix the Terraform gaps (key pair, outbound access for `db-01`) and run `terraform plan`.
+2. Resolve the Nginx/UFW port mismatch and the `sysadmin` sudo setup.
+3. Generate the Ansible inventory from Terraform outputs.
+4. Add Terraform security scanning and role tests (for example `checkov` and Molecule).
 
 ## Author
 
-GitHub: [@tvero1011](https://github.com/tvero1011)
+[@tvero1011](https://github.com/tvero1011)
