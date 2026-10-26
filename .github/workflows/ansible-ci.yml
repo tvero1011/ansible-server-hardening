@@ -1,0 +1,43 @@
+name: Ansible CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible and ansible-lint
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ansible-core ansible-lint
+
+      - name: Install required Ansible collections
+        run: |
+          ansible-galaxy collection install ansible.posix community.general
+
+      - name: Run Ansible lint
+        run: ansible-lint playbooks/ roles/server_hardening/
+
+      - name: Check hardening playbook syntax
+        run: ansible-playbook playbooks/hardening.yml --syntax-check
+
+      - name: Check compliance playbook syntax
+        run: ansible-playbook playbooks/compliance.yml --syntax-check
+
+      - name: Check drift detection syntax
+        run: ansible-playbook playbooks/drift_check.yml --syntax-check
+
+      - name: Check monitoring playbook syntax
+        run: ansible-playbook playbooks/monitor.yml --syntax-check

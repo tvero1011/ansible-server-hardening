@@ -1,0 +1,61 @@
+---
+- name: Detect SSH security configuration drift
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../roles/server_hardening/defaults/main.yml
+
+  vars:
+    ssh_expected:
+      port: "{{ server_hardening_ssh_port | string }}"
+      permitrootlogin: "{{ server_hardening_ssh_permit_root_login }}"
+      passwordauthentication: "{{ server_hardening_ssh_password_authentication }}"
+      pubkeyauthentication: "yes"
+
+  tasks:
+    - name: Read effective SSH configuration
+      ansible.builtin.command: sshd -T
+      register: ssh_effective
+      changed_when: false
+
+    - name: Parse effective SSH settings
+      ansible.builtin.set_fact:
+        ssh_actual: >-
+          {{ ssh_actual | default({}) | combine({
+             item: (
+               ssh_effective.stdout_lines
+               | select('match', '^' ~ item ~ '\s+')
+               | first
+               | default('')
+               | split
+               | last
+             )
+          }) }}
+      loop: "{{ ssh_expected.keys() | list }}"
+
+    - name: Report SSH configuration drift
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {{ item.key }} expected={{ item.value }},
+          actual={{ ssh_actual[item.key] }},
+          status={{
+            'COMPLIANT'
+            if ssh_actual[item.key] == item.value
+            else 'DRIFT DETECTED'
+          }}
+      loop: "{{ ssh_expected | dict2items }}"
+
+    - name: Fail if SSH configuration drift is detected
+      ansible.builtin.assert:
+        that:
+          - ssh_actual[item.key] == item.value
+        fail_msg: >-
+          SSH drift detected on {{ inventory_hostname }}:
+          {{ item.key }} expected={{ item.value }},
+          actual={{ ssh_actual[item.key] }}
+        success_msg: >-
+          SSH setting {{ item.key }} is compliant
+      loop: "{{ ssh_expected | dict2items }}"
