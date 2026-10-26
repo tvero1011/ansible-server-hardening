@@ -1,3 +1,4 @@
+
 # Secrets
 .vault_pass
 vault-password.txt
@@ -13,5 +14,20 @@ __pycache__/
 
 # Ansible temporary files
 *.retry
-
 .ansible/
+
+# Terraform local files
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Terraform variable files may contain secrets
+*.tfvars
+*.tfvars.json
+
+# Terraform CLI configuration
+.terraformrc
+terraform.rc
