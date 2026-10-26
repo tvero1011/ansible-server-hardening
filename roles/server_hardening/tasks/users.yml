@@ -1,10 +1,10 @@
 - name: Display the administrator account we plan to manage
   ansible.builtin.debug:
-    msg: "The administrator account will be {{ admin_user }}"
+    msg: "The administrator account will be {{ server_hardening_admin_user }}"
 
 - name: Create the administrator account
   ansible.builtin.user:
-    name: "{{ admin_user }}"
+    name: "{{ server_hardening_admin_user }}"
     groups: sudo
     append: true
     shell: /bin/bash
@@ -13,7 +13,6 @@
 
 - name: Install SSH public key for the administrator
   ansible.posix.authorized_key:
-    user: "{{ admin_user }}"
+    user: "{{ server_hardening_admin_user }}"
     state: present
     key: "{{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_ed25519.pub') }}"
- 

@@ -4,5 +4,12 @@ vault-password.txt
 *.pem
 .env
 
+# Python virtual environment
+.venv/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+
 # Ansible temporary files
 *.retry

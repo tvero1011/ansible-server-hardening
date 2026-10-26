@@ -3,7 +3,7 @@
     name: fail2ban
     state: present
     update_cache: true
-  when: fail2ban_enabled | bool
+  when: server_hardening_fail2ban_enabled | bool
   tags:
     - fail2ban
 
@@ -15,7 +15,7 @@
     group: root
     mode: '0644'
   notify: Restart Fail2ban
-  when: fail2ban_enabled | bool
+  when: server_hardening_fail2ban_enabled | bool
   tags:
     - fail2ban
 
@@ -24,6 +24,6 @@
     name: fail2ban
     enabled: true
     state: started
-  when: fail2ban_enabled | bool
+  when: server_hardening_fail2ban_enabled | bool
   tags:
     - fail2ban

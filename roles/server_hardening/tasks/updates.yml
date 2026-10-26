@@ -3,7 +3,7 @@
     name: unattended-upgrades
     state: present
     update_cache: true
-  when: unattended_upgrades_enabled | bool
+  when: server_hardening_unattended_upgrades_enabled | bool
   tags:
     - updates
 
@@ -14,6 +14,6 @@
     owner: root
     group: root
     mode: '0644'
-  when: unattended_upgrades_enabled | bool
+  when: server_hardening_unattended_upgrades_enabled | bool
   tags:
     - updates

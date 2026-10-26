@@ -4,12 +4,9 @@
   become: true
 
   tasks:
-    - name: Check SSH service is running
-      ansible.builtin.command: systemctl is-active ssh
-      register: ssh_service
-      changed_when: false
+    - name: Gather service facts
+      ansible.builtin.service_facts:
 
     - name: Report SSH service status
       ansible.builtin.debug:
-        msg: "SSH service on {{ inventory_hostname }}: {{ ssh_service.stdout }}"
-        
+        msg: "SSH service on {{ inventory_hostname }}: {{ ansible_facts.services.get('ssh.service', {}).get('state', 'not found') }}"

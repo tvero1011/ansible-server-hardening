@@ -3,7 +3,7 @@
     name: auditd
     state: present
     update_cache: true
-  when: auditd_enabled | bool
+  when: server_hardening_auditd_enabled | bool
   tags:
     - auditd
 
@@ -15,7 +15,7 @@
     group: root
     mode: '0640'
   notify: Load audit rules
-  when: auditd_enabled | bool
+  when: server_hardening_auditd_enabled | bool
   tags:
     - auditd
 
@@ -24,6 +24,6 @@
     name: auditd
     enabled: true
     state: started
-  when: auditd_enabled | bool
+  when: server_hardening_auditd_enabled | bool
   tags:
     - auditd

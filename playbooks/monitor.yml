@@ -4,22 +4,19 @@
   become: true
 
   tasks:
-    - name: Check SSH service
-      ansible.builtin.command: systemctl is-active ssh
-      register: ssh_status
-      changed_when: false
-      failed_when: false
+    - name: Gather service facts
+      ansible.builtin.service_facts:
 
     - name: Report SSH service status
       ansible.builtin.debug:
         msg: >-
           {{ inventory_hostname }} SSH health:
-          {{ 'HEALTHY' if ssh_status.rc == 0 and ssh_status.stdout == 'active' else 'WARNING - SSH is not active' }}
+          {{ 'HEALTHY' if ansible_facts.services.get('ssh.service', {}).get('state') == 'running' else 'WARNING - SSH is not active' }}
 
     - name: Warn if SSH service is unhealthy
       ansible.builtin.debug:
         msg: "WARNING: SSH service is not active on {{ inventory_hostname }}"
-      when: ssh_status.rc != 0 or ssh_status.stdout != 'active'
+      when: ansible_facts.services.get('ssh.service', {}).get('state') != 'running'
 
     - name: Check root filesystem disk usage
       ansible.builtin.command: df -P /

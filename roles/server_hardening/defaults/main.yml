@@ -1,28 +1,28 @@
 ---
 # Default settings for the server_hardening role
 
-admin_user: sysadmin
+server_hardening_admin_user: sysadmin
 
-ssh_port: 22
-ssh_permit_root_login: "no"
-ssh_password_authentication: "no"
+server_hardening_ssh_port: 22
+server_hardening_ssh_permit_root_login: "no"
+server_hardening_ssh_password_authentication: "no"
 
-ufw_default_incoming_policy: deny
-ufw_default_outgoing_policy: allow
+server_hardening_ufw_default_incoming_policy: deny
+server_hardening_ufw_default_outgoing_policy: allow
 
-ufw_ssh_port: 22
-ufw_https_port: 443
+server_hardening_ufw_ssh_port: 22
+server_hardening_ufw_https_port: 443
 # HTTPS firewall setting (disabled by default)
-ufw_allow_https: false
+server_hardening_ufw_allow_https: false
 
 # Fail2ban settings
-fail2ban_enabled: true
-fail2ban_ssh_maxretry: 5
-fail2ban_ssh_findtime: 10m
-fail2ban_ssh_bantime: 10m
+server_hardening_fail2ban_enabled: true
+server_hardening_fail2ban_ssh_maxretry: 5
+server_hardening_fail2ban_ssh_findtime: 10m
+server_hardening_fail2ban_ssh_bantime: 10m
 
 # Automatic security update settings
-unattended_upgrades_enabled: true
+server_hardening_unattended_upgrades_enabled: true
 
 # Linux audit settings
-auditd_enabled: true
+server_hardening_auditd_enabled: true

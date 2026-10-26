@@ -1,4 +1,4 @@
 ---
 # Settings specific to database servers
 
-ufw_allow_https: false
+server_hardening_ufw_allow_https: false
