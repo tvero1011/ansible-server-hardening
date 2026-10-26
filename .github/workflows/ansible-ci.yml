@@ -28,16 +28,11 @@ jobs:
           ansible-galaxy collection install ansible.posix community.general
 
       - name: Run Ansible lint
-        run: ansible-lint playbooks/ roles/server_hardening/
+        run: ansible-lint playbooks/ roles/
 
-      - name: Check hardening playbook syntax
-        run: ansible-playbook playbooks/hardening.yml --syntax-check
-
-      - name: Check compliance playbook syntax
-        run: ansible-playbook playbooks/compliance.yml --syntax-check
-
-      - name: Check drift detection syntax
-        run: ansible-playbook playbooks/drift_check.yml --syntax-check
-
-      - name: Check monitoring playbook syntax
-        run: ansible-playbook playbooks/monitor.yml --syntax-check
+      - name: Check all playbook syntax
+        run: |
+          for playbook in playbooks/*.yml; do
+            echo "Checking ${playbook}"
+            ansible-playbook "${playbook}" --syntax-check
+          done
