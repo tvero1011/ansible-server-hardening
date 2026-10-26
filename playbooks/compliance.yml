@@ -2,6 +2,10 @@
 - name: Verify server security compliance
   hosts: all
   become: true
+  gather_facts: true
+
+  vars_files:
+    - ../roles/server_hardening/defaults/main.yml
 
   tasks:
     - name: Check effective SSH configuration
@@ -9,26 +13,18 @@
       register: ssh_effective_config
       changed_when: false
 
-    - name: Verify root login is disabled
+    - name: Verify SSH security settings
       ansible.builtin.assert:
         that:
+          - "'port ' ~ (server_hardening_ssh_port | string) in ssh_effective_config.stdout_lines"
           - "'permitrootlogin no' in ssh_effective_config.stdout_lines"
-        fail_msg: "FAIL: Root SSH login is not disabled on {{ inventory_hostname }}"
-        success_msg: "PASS: Root SSH login is disabled"
-
-    - name: Verify password authentication is disabled
-      ansible.builtin.assert:
-        that:
           - "'passwordauthentication no' in ssh_effective_config.stdout_lines"
-        fail_msg: "FAIL: Password SSH authentication is enabled on {{ inventory_hostname }}"
-        success_msg: "PASS: Password SSH authentication is disabled"
-
-    - name: Verify public key authentication is enabled
-      ansible.builtin.assert:
-        that:
           - "'pubkeyauthentication yes' in ssh_effective_config.stdout_lines"
-        fail_msg: "FAIL: Public key SSH authentication is disabled on {{ inventory_hostname }}"
-        success_msg: "PASS: Public key SSH authentication is enabled"
+        fail_msg: >-
+          SSH compliance failed on {{ inventory_hostname }}.
+          Check the effective SSH port, root login,
+          password authentication, and public key authentication.
+        success_msg: "PASS: SSH security settings are compliant"
 
     - name: Check UFW status
       ansible.builtin.command: ufw status
@@ -47,9 +43,50 @@
       register: ufw_verbose
       changed_when: false
 
-    - name: Verify incoming traffic is denied by default
+    - name: Verify UFW default policies
       ansible.builtin.assert:
         that:
-          - "'Default: deny (incoming)' in ufw_verbose.stdout"
-        fail_msg: "FAIL: UFW incoming policy is not deny on {{ inventory_hostname }}"
-        success_msg: "PASS: UFW denies incoming traffic by default"
+          - "'Default: ' ~ server_hardening_ufw_default_incoming_policy ~ ' (incoming)' in ufw_verbose.stdout"
+          - "server_hardening_ufw_default_outgoing_policy ~ ' (outgoing)' in ufw_verbose.stdout"
+        fail_msg: >-
+          FAIL: UFW default policies do not match the expected
+          incoming and outgoing policies on {{ inventory_hostname }}.
+        success_msg: "PASS: UFW default policies are compliant"
+
+    - name: Check service states
+      ansible.builtin.service_facts:
+
+    - name: Verify Fail2ban is enabled and running
+      ansible.builtin.assert:
+        that:
+          - "'fail2ban.service' in ansible_facts.services"
+          - "ansible_facts.services['fail2ban.service'].state == 'running'"
+          - "ansible_facts.services['fail2ban.service'].status == 'enabled'"
+        fail_msg: "FAIL: Fail2ban is not enabled and running on {{ inventory_hostname }}"
+        success_msg: "PASS: Fail2ban is enabled and running"
+      when: server_hardening_fail2ban_enabled | bool
+
+    - name: Check automatic security update configuration
+      ansible.builtin.command: cat /etc/apt/apt.conf.d/20auto-upgrades
+      register: auto_upgrades_config
+      changed_when: false
+      when: server_hardening_unattended_upgrades_enabled | bool
+
+    - name: Verify automatic security updates are configured
+      ansible.builtin.assert:
+        that:
+          - "'APT::Periodic::Update-Package-Lists \"1\";' in auto_upgrades_config.stdout"
+          - "'APT::Periodic::Unattended-Upgrade \"1\";' in auto_upgrades_config.stdout"
+        fail_msg: "FAIL: Automatic updates are not correctly configured on {{ inventory_hostname }}"
+        success_msg: "PASS: Automatic updates are configured"
+      when: server_hardening_unattended_upgrades_enabled | bool
+
+    - name: Verify auditd is enabled and running
+      ansible.builtin.assert:
+        that:
+          - "'auditd.service' in ansible_facts.services"
+          - "ansible_facts.services['auditd.service'].state == 'running'"
+          - "ansible_facts.services['auditd.service'].status == 'enabled'"
+        fail_msg: "FAIL: auditd is not enabled and running on {{ inventory_hostname }}"
+        success_msg: "PASS: auditd is enabled and running"
+      when: server_hardening_auditd_enabled | bool
