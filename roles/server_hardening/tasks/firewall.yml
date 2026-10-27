@@ -21,6 +21,13 @@
     proto: tcp
   when: server_hardening_ufw_allow_https | bool
 
+- name: Allow HTTP on web servers
+  community.general.ufw:
+    rule: allow
+    port: "{{ server_hardening_ufw_http_port }}"
+    proto: tcp
+  when: server_hardening_ufw_allow_http | bool
+
 - name: Enable UFW
   community.general.ufw:
     state: enabled

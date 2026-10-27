@@ -16,3 +16,13 @@
     user: "{{ server_hardening_admin_user }}"
     state: present
     key: "{{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_ed25519.pub') }}"
+
+- name: Allow passwordless sudo for the administrator (lab setting)
+  ansible.builtin.copy:
+    content: "{{ server_hardening_admin_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    dest: "/etc/sudoers.d/90-{{ server_hardening_admin_user }}"
+    owner: root
+    group: root
+    mode: '0440'
+    validate: 'visudo -cf %s'
+  when: server_hardening_admin_passwordless_sudo | bool

@@ -25,3 +25,8 @@ variable "instance_type" {
   type        = string
   default     = "t3.micro"
 }
+
+variable "public_key" {
+  description = "SSH public key (contents of id_ed25519.pub) installed on both instances"
+  type        = string
+}

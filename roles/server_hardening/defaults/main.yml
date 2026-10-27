@@ -2,6 +2,8 @@
 # Default settings for the server_hardening role
 
 server_hardening_admin_user: sysadmin
+# Lab setting: key-only account, so allow sudo without a password
+server_hardening_admin_passwordless_sudo: true
 
 server_hardening_ssh_port: 22
 server_hardening_ssh_permit_root_login: "no"
@@ -14,6 +16,10 @@ server_hardening_ufw_ssh_port: 22
 server_hardening_ufw_https_port: 443
 # HTTPS firewall setting (disabled by default)
 server_hardening_ufw_allow_https: false
+
+# HTTP firewall setting (disabled by default)
+server_hardening_ufw_http_port: 80
+server_hardening_ufw_allow_http: false
 
 # Fail2ban settings
 server_hardening_fail2ban_enabled: true

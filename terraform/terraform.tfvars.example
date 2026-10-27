@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (ignored by Git) and fill in your values.
+# Your public IP:  curl https://checkip.amazonaws.com   -> append /32
+admin_cidr = "203.0.113.10/32"
+
+# Contents of ~/.ssh/id_ed25519.pub from the machine that will run Ansible
+public_key = "ssh-ed25519 AAAA... ubuntu@ansible-ctl"

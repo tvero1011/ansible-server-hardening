@@ -116,13 +116,13 @@ resource "aws_security_group" "web" {
   }
 }
 
-
 resource "aws_instance" "web" {
   ami                         = data.aws_ami.ubuntu.id
   instance_type               = var.instance_type
   subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.web.id]
   associate_public_ip_address = true
+  key_name                    = aws_key_pair.lab.key_name
 
   metadata_options {
     http_endpoint = "enabled"
@@ -142,7 +142,6 @@ resource "aws_instance" "web" {
   }
 }
 
-
 resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.20.2.0/24"
@@ -156,7 +155,7 @@ resource "aws_subnet" "private" {
 
 resource "aws_security_group" "db" {
   name        = "${var.project_name}-db-sg"
-  description = "Database access from the web server only"
+  description = "SSH access from the web server only"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -187,6 +186,7 @@ resource "aws_instance" "db" {
   subnet_id                   = aws_subnet.private.id
   vpc_security_group_ids      = [aws_security_group.db.id]
   associate_public_ip_address = false
+  key_name                    = aws_key_pair.lab.key_name
 
   metadata_options {
     http_endpoint = "enabled"
@@ -204,4 +204,73 @@ resource "aws_instance" "db" {
     Role    = "db"
     Project = var.project_name
   }
+}
+
+resource "aws_key_pair" "lab" {
+  key_name   = "${var.project_name}-key"
+  public_key = var.public_key
+
+  tags = {
+    Project = var.project_name
+  }
+}
+
+resource "aws_eip" "web" {
+  domain = "vpc"
+
+  tags = {
+    Name    = "${var.project_name}-web-eip"
+    Project = var.project_name
+  }
+
+  depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_eip_association" "web" {
+  instance_id   = aws_instance.web.id
+  allocation_id = aws_eip.web.id
+}
+
+# Outbound internet for the private subnet (apt updates for db-01).
+# The NAT gateway is billed hourly; run `terraform destroy` when finished.
+resource "aws_eip" "nat" {
+  domain = "vpc"
+
+  tags = {
+    Name    = "${var.project_name}-nat-eip"
+    Project = var.project_name
+  }
+
+  depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public.id
+
+  tags = {
+    Name    = "${var.project_name}-nat"
+    Project = var.project_name
+  }
+
+  depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
+
+  tags = {
+    Name    = "${var.project_name}-private-rt"
+    Project = var.project_name
+  }
+}
+
+resource "aws_route_table_association" "private" {
+  subnet_id      = aws_subnet.private.id
+  route_table_id = aws_route_table.private.id
 }

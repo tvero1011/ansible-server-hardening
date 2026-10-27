@@ -31,3 +31,5 @@ crash.*.log
 # Terraform CLI configuration
 .terraformrc
 terraform.rc
+
+inventory.aws.ini
