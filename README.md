@@ -8,12 +8,10 @@ Ansible automation that hardens Ubuntu servers, checks them against a security b
 
 | Part | Status |
 |------|--------|
-| Ansible hardening, compliance, and drift checks | Run and tested on two Ubuntu 24.04 Multipass VMs, including a second hardening run with `changed=0`. That screenshot was taken before the HTTP firewall rule and the sudoers rule were added (see [Evidence](#evidence)) |
+| Ansible hardening, compliance, and drift checks | Run and tested on two Ubuntu 24.04 Multipass VMs, including a second hardening run with `changed=0` |
 | Ansible on AWS | Run once against two EC2 instances: ping, hardening, compliance, and Nginx deployment all completed with `failed=0` |
 | Terraform / AWS | `terraform apply` created 17 resources in `ap-southeast-1`; the environment was then removed with `terraform destroy`, so **no AWS resources are running** |
 | GitHub Actions CI | `ansible-lint`, playbook syntax checks, `terraform fmt`, `terraform validate` |
-
-Documentation last checked against the code and screenshots on 24 November 2026.
 
 ## Architecture
 
@@ -125,7 +123,7 @@ Run the hardening playbook a second time to check repeatability; a second run sh
 
 **Cost warning:** this creates billable resources. The NAT gateway and the public IPv4 addresses are charged by the hour while they exist, so destroy the environment when you finish.
 
-Prerequisites: Terraform 1.5 or newer (AWS provider 6.x), AWS credentials configured on the machine running it (this project was run with an IAM Identity Center profile and `aws sso login`), and the Ansible setup from the quick start.
+Prerequisites: Terraform 1.5 or newer (AWS provider ~> 6.0), AWS credentials configured on the machine running it (this project was run with an IAM Identity Center profile and `aws sso login`), and the Ansible setup from the quick start.
 
 ```bash
 cd terraform
@@ -156,7 +154,7 @@ terraform -chdir=terraform destroy
 
 ### What Terraform creates
 
-17 resources: a VPC, a public and a private subnet, an internet gateway, a NAT gateway with its Elastic IP, a public and a private route table with their associations, two security groups, an SSH key pair, an Elastic IP for `web-01` with its association to the instance, and two Ubuntu 24.04 EC2 instances (`t3.micro`, encrypted 8 GB gp3 root volumes, IMDSv2 required). The AMI is the most recent Canonical Ubuntu 24.04 image at apply time.
+17 resources: a VPC, a public and a private subnet, an internet gateway, a NAT gateway with its Elastic IP, a public and a private route table with their associations, two security groups, an SSH key pair, an Elastic IP for `web-01`, and two Ubuntu 24.04 EC2 instances (`t3.micro`, encrypted 8 GB gp3 root volumes, IMDSv2 required).
 
 - SSH to the web server is limited to one administrator address (`admin_cidr`, which must be a `/32`); HTTP and HTTPS are open to the internet.
 - The database server accepts SSH only from the web server's security group and has no public IP.
@@ -178,14 +176,14 @@ The workflow in `.github/workflows/ansible-ci.yml` runs on pushes, pull requests
 
 ## Evidence
 
-Screenshots are in [`docs/proof/`](docs/proof/). The AWS screenshots show the public IP and resource IDs of the temporary environment, which no longer exists.
+Screenshots are in [`docs/proof/`](docs/proof/).
 
 **Local lab**
 
 | Step | Screenshot |
 |------|------------|
 | Ansible ping to `web-01` and `db-01` | `00-ansible-connectivity.png` |
-| Second hardening run: `changed=0`, `failed=0` (`db-01` ok=17, `web-01` ok=18). Taken before the HTTP firewall and sudoers tasks existed, so the current code gives higher `ok` counts | `01-hardening-success.png` |
+| Second hardening run: `changed=0`, `failed=0` | `01-hardening-success.png` |
 | Compliance run: `failed=0` | `02-compliance-success.png` |
 | Drift check failing on a deliberate mismatch | `03-ssh-drift-detection.png` |
 | Passing GitHub Actions runs | `04-github-actions-ci.png` |
@@ -196,7 +194,7 @@ Screenshots are in [`docs/proof/`](docs/proof/). The AWS screenshots show the pu
 |------|------------|
 | `terraform apply`: 17 resources added, with the generated inventory | `05-terraform-apply.png` |
 | Ansible ping to `web-01` and `db-01` (the latter through the jump host) | `06-aws-ansible-ping.png` |
-| First hardening run: `failed=0`, `unreachable=0` (`db-01` ok=21, changed=13; `web-01` ok=23, changed=15). Uses the current code | `07-aws-hardening.png` |
+| First hardening run: `failed=0`, `unreachable=0` (`db-01` changed=13, `web-01` changed=15) | `07-aws-hardening.png` |
 | Compliance run: `ok=12`, `changed=0`, `failed=0` on both hosts | `08-aws-compliance.png` |
 | EC2 console: both instances running | `09-aws-console-ec2.png` |
 | Nginx deployment and the page served by `web-01` | `10-aws-nginx.png` |
@@ -205,16 +203,13 @@ Screenshots are in [`docs/proof/`](docs/proof/). The AWS screenshots show the pu
 
 - **No TLS:** the Nginx page is served over HTTP on port 80. HTTPS is open in the firewall and security group, but no certificate is configured.
 - **Passwordless sudo:** the `sysadmin` account gets passwordless sudo because it is a key-only account in a lab. For a production server, set `server_hardening_admin_passwordless_sudo: false` and manage sudo access another way.
-- **Idempotency and drift on AWS:** the `changed=0` re-run and the drift check were done on the local lab, not on the AWS instances. The AWS run shows a first hardening run only. The local `changed=0` screenshot is also older than the HTTP firewall and sudoers tasks, so it should be repeated on the current code.
+- **Idempotency and drift on AWS:** the `changed=0` re-run and the drift check were done on the local lab, not on the AWS instances. The AWS run shows a first hardening run only.
 - **Compliance and drift coverage:** the compliance playbook is a focused baseline, not a standard such as CIS, and does not check the admin user, the HTTP and HTTPS rules, or the audit rules. The drift check covers four SSH settings and only reports.
 - **Terraform state and layout:** state is local, the environment uses a single availability zone, there are no VPC flow logs, and outbound traffic is open on both security groups.
 - **Cost:** the NAT gateway makes the private subnet usable for package updates, but it is billed hourly. It is the main cost of this setup, so destroy the environment after use.
 - **Inventory:** `inventory.ini` holds the lab IPs. For AWS, the inventory comes from the Terraform output but is saved to a file by hand.
 - **Logging:** Fail2ban and `auditd` record events but do not alert anyone.
-- **Checks read role defaults:** `compliance.yml` and `drift_check.yml` load `roles/server_hardening/defaults/main.yml` with `vars_files`, which takes precedence over `group_vars/`. If a setting such as the SSH port were overridden in `group_vars/` or `host_vars/`, the hardening role would apply it but the checks would still expect the default value.
-- **Two SSH port variables:** `server_hardening_ssh_port` and `server_hardening_ufw_ssh_port` must be changed together. Changing the port has not been tested. Ubuntu 24.04 starts SSH through a systemd socket, so check that the new port really listens before relying on it.
-- **Check mode:** `--check` fails on a fresh server at the SSH key task, because the `sysadmin` user does not exist yet in check mode.
-- **Unpinned versions:** the AMI lookup takes the newest image, so a later `terraform apply` could plan to replace the instances. CI installs the latest `ansible-core`, `ansible-lint` and Terraform, so a new release can break a green build.
+- **CI runner image:** the workflow uses `runs-on: ubuntu-latest`. GitHub scheduled that label to move to Ubuntu 26.04 between 19 October and 19 November 2026. If a run fails after that, pin `ubuntu-24.04`.
 - **No integration tests:** CI checks code quality only. There are no tests against live servers, no Terraform security scanning, and no remote Terraform state.
 
 ## Next steps
