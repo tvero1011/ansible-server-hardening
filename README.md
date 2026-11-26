@@ -201,25 +201,21 @@ Screenshots are in [`docs/proof/`](docs/proof/).
 
 ## Known limitations
 
-- **No TLS:** the Nginx page is served over HTTP on port 80. HTTPS is open in the firewall and security group, but no certificate is configured.
-- **Passwordless sudo:** the `sysadmin` account gets passwordless sudo because it is a key-only account in a lab. For a production server, set `server_hardening_admin_passwordless_sudo: false` and manage sudo access another way.
-- **Idempotency and drift on AWS:** the `changed=0` re-run and the drift check were done on the local lab, not on the AWS instances. The AWS run shows a first hardening run only.
-- **Compliance and drift coverage:** the compliance playbook is a focused baseline, not a standard such as CIS, and does not check the admin user, the HTTP and HTTPS rules, or the audit rules. The drift check covers four SSH settings and only reports.
-- **Terraform state and layout:** state is local, the environment uses a single availability zone, there are no VPC flow logs, and outbound traffic is open on both security groups.
-- **Cost:** the NAT gateway makes the private subnet usable for package updates, but it is billed hourly. It is the main cost of this setup, so destroy the environment after use.
-- **Inventory:** `inventory.ini` holds the lab IPs. For AWS, the inventory comes from the Terraform output but is saved to a file by hand.
-- **Logging:** Fail2ban and `auditd` record events but do not alert anyone.
-- **CI runner image:** the workflow uses `runs-on: ubuntu-latest`. GitHub scheduled that label to move to Ubuntu 26.04 between 19 October and 19 November 2026. If a run fails after that, pin `ubuntu-24.04`.
-- **No integration tests:** CI checks code quality only. There are no tests against live servers, no Terraform security scanning, and no remote Terraform state.
+- **Transport and access:** the Nginx page is served over HTTP only (HTTPS is open in the firewall and security group, but no certificate is configured). The `sysadmin` account has passwordless sudo as a lab setting; for production set `server_hardening_admin_passwordless_sudo: false`.
+- **Proof on AWS:** the `changed=0` re-run and the drift check were done on the local lab, not on the AWS instances. The AWS run shows a first hardening run only.
+- **Check coverage:** the compliance playbook is a focused baseline, not CIS, and skips the admin user, HTTP and HTTPS rules, and audit rules. The drift check covers four SSH settings and only reports. Fail2ban and `auditd` record events but do not alert anyone.
+- **Terraform and cost:**
+  - State is local, there is a single availability zone, no VPC flow logs, and outbound traffic is open on both security groups.
+  - The NAT gateway lets the private subnet fetch updates but is billed hourly, so destroy the environment after use.
+  - The AWS inventory comes from the Terraform output but is saved to a file by hand.
+- **CI:** it checks code quality only, with no tests against live servers, no Terraform security scanning, and `runs-on: ubuntu-latest`, which GitHub scheduled to move to Ubuntu 26.04 between 19 October and 19 November 2026. If a run fails, pin `ubuntu-24.04`.
 
-## Next steps
+## Future improvements
 
-1. Add TLS to the Nginx role (for example with a certificate from Let's Encrypt).
-2. Repeat hardening and the drift check on a fresh AWS deployment to show `changed=0` and drift detection there.
-3. Add Terraform security scanning and role tests (for example `checkov` and Molecule).
-4. Store Terraform state remotely (S3 with locking) and spread the environment across two availability zones.
-5. Extend the compliance and drift checks to UFW, services, and audit rules, with an opt-in remediation run.
-6. Replace the NAT gateway with a cheaper option for lab use, such as a NAT instance.
+1. **Security:** add TLS to the Nginx role (for example with Let's Encrypt), and extend the compliance and drift checks to UFW, services, and audit rules, with an opt-in remediation run.
+2. **Proof:** repeat hardening and the drift check on a fresh AWS deployment to show `changed=0` and drift detection there.
+3. **Quality:** add Terraform security scanning and role tests (for example `checkov` and Molecule).
+4. **Infrastructure:** store Terraform state remotely (S3 with locking), spread the environment across two availability zones, and use a cheaper NAT option such as a NAT instance for lab use.
 
 ## Author
 
